@@ -49,6 +49,40 @@ def list_expenses(start_date, end_date):
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
 @mcp.tool()
+def edit_expense(id: int, date: str = None, amount: float = None, category: str = None, subcategory: str = None, note: str = None):
+    '''Edit an existing expense entry by its ID. Only the fields you provide will be updated.'''
+    fields = {"date": date, "amount": amount, "category": category, "subcategory": subcategory, "note": note}
+    updates = {k: v for k, v in fields.items() if v is not None}
+
+    if not updates:
+        return {"status": "error", "message": "No fields provided to update"}
+
+    with sqlite3.connect(DB_PATH) as c:
+        row = c.execute("SELECT id FROM expenses WHERE id = ?", (id,)).fetchone()
+        if row is None:
+            return {"status": "error", "message": f"Expense with id {id} not found"}
+
+        set_clause = ", ".join(f"{col} = ?" for col in updates)
+        params = list(updates.values()) + [id]
+        c.execute(f"UPDATE expenses SET {set_clause} WHERE id = ?", params)
+
+    return {"status": "ok", "updated": id}
+
+
+@mcp.tool()
+def delete_expense(id: int):
+    '''Delete an expense entry by its ID.'''
+    with sqlite3.connect(DB_PATH) as c:
+        row = c.execute("SELECT id FROM expenses WHERE id = ?", (id,)).fetchone()
+        if row is None:
+            return {"status": "error", "message": f"Expense with id {id} not found"}
+
+        c.execute("DELETE FROM expenses WHERE id = ?", (id,))
+
+    return {"status": "ok", "deleted": id}
+
+
+@mcp.tool()
 def summarize(start_date, end_date, category=None):
     '''Summarize expenses by category within an inclusive date range.'''
     with sqlite3.connect(DB_PATH) as c:
